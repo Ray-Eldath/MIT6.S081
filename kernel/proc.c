@@ -85,6 +85,23 @@ allocpid() {
   return pid;
 }
 
+int
+nproc()
+{
+  int r = 0;
+  struct proc *p;
+
+  for (p = proc; p < &proc[NPROC]; p++)
+  {
+    acquire(&p->lock);
+    if (p->state != UNUSED)
+      r++;
+    release(&p->lock);
+  }
+
+  return r;
+}
+
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
@@ -290,6 +307,9 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
+  // copy trace_mask
+  np->trace_mask = p->trace_mask;
 
   pid = np->pid;
 
