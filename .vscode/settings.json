@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "memlayout.h": "c",
+        "spinlock.h": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "system_error": "c",
+        "fs.h": "c",
+        "user.h": "c",
+        "stat.h": "c",
+        "types.h": "c",
+        "*.d": "c",
+        "ratio": "c"
+    }
+}
