@@ -65,7 +65,7 @@ exec(char *path, char **argv)
   uint64 oldsz = p->sz;
 
   // Allocate two pages at the next page boundary.
-  // Use the second as the user stack.
+  // Use the second as the user stack. The pages grow upward, while the stack grow downward， so that a process can never use more than one page stack.
   sz = PGROUNDUP(sz);
   uint64 sz1;
   if((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE)) == 0)
@@ -116,6 +116,8 @@ exec(char *path, char **argv)
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
+  // if (p->pid == 1)
+    // vmprint(p->kpagetable);
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

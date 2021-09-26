@@ -57,7 +57,7 @@ kfree(void *pa)
   r = (struct run*)pa;
 
   acquire(&kmem.lock);
-  r->next = kmem.freelist;
+  r->next = kmem.freelist; // make run (just sit on the free page) points to the previous run that just beneath it.
   kmem.freelist = r;
   release(&kmem.lock);
 }
