@@ -30,6 +30,8 @@ ugetpid_test()
 {
   int i;
 
+  printf("before starting...\n");
+  printf("pid: %d\n", ugetpid());
   printf("ugetpid_test starting\n");
   testname = "ugetpid_test";
 

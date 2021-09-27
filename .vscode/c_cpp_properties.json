@@ -1,0 +1,15 @@
+{
+    "configurations": [
+        {
+            "name": "LAB_PGTBL",
+            "defines": [
+                "LAB_PGTBL"
+            ],
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}"
+            ]
+        }
+    ],
+    "version": 4
+}
