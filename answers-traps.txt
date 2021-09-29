@@ -1,0 +1,7 @@
+1. a1 and a2. a2 refers to the second parameter 13 and a1 refers to the first one. 
+   There's no call to function f, cause f(8)+1 are optimized out and passed in directly
+   as 12 (inlining + constant folding kind of things...?). amazing.
+2. all inlined, as answered in (1).
+3. at $PC + 1528, thats 0x30 + 1528, namely 0x628.
+4. next instr addr of jalr, 0x38.
+5. the value of $a1...? quite not sure :-/
