@@ -15,3 +15,8 @@ Trivial.
 1. *usyscall*: remember to set *both* `PTE_V` **and `PTE_U`** when setting the usyscall page. I forgot the last one, and spent **freaking and totally unreasonable** six hours just for debugging, such a big shame.
 2. *printout*: ditto.
 3. *pgtbltest*: an easy one. Just to notice that `copyout` need a *pointer to the actual value* as its third argument (`src`), and a length in *byte* (while `sz` the user passed in is in *bit*) as the last parameter.
+
+### [traps](https://github.com/Ray-Eldath/MIT6.S081/tree/traps)
+1. *RISC-V Assembly*: trivial.
+2. *backtrace*: be careful with assositivity order, especially `+` operator and `(...)` cast operator.
+3. *alarm*: two things to keep in mind: First, actually you *can't really do anything* under supervisor mode, for example, read PTE who has a set `PTE_U` flag is still forbidden. Second, think twice of your `sizeof` operand.
