@@ -112,6 +112,11 @@ found:
     release(&p->lock);
     return 0;
   }
+  if((p->usertrap = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -120,6 +125,9 @@ found:
     release(&p->lock);
     return 0;
   }
+  p->sysalarm_handler = 0;
+  p->sysalarm_ticks = 0;
+  p->sysalarm_current_ticks = 0;
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -138,6 +146,8 @@ freeproc(struct proc *p)
 {
   if(p->trapframe)
     kfree((void*)p->trapframe);
+  if(p->usertrap)
+    kfree((void*)p->usertrap);
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
@@ -150,6 +160,9 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->sysalarm_handler = 0;
+  p->sysalarm_ticks = 0;
+  p->sysalarm_current_ticks = 0;
 }
 
 // Create a user page table for a given process,

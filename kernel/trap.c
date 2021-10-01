@@ -77,8 +77,21 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if (which_dev == 2)
+  {
+    if (p->sysalarm_current_ticks < p->sysalarm_ticks)
+    {
+      if (++(p->sysalarm_current_ticks) >= p->sysalarm_ticks)
+      {
+        // p->sysalarm_current_ticks = 0;
+        memmove(p->usertrap, p->trapframe, sizeof (struct trapframe));
+        // printf("usertrap: %p  trapframe: %p\n", p->usertrap, p->trapframe);
+        p->trapframe->epc = p->sysalarm_handler;
+      }
+    }
+
     yield();
+  }
 
   usertrapret();
 }

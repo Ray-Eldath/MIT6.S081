@@ -60,7 +60,7 @@ def test_alarmtest_test2():
 def test_usertests():
     r.run_qemu(shell_script([
         'usertests'
-    ]), timeout=300)
+    ]), timeout=600)
     r.match('^ALL TESTS PASSED$')
 
 @test(1, "time")
