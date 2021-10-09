@@ -16,8 +16,14 @@ simpletest()
   int sz = (phys_size / 3) * 2;
 
   printf("simple: ");
-  
+
+#ifdef COWTEST_DEBUG
+  printf("size: %d\n", sz);
+#endif
   char *p = sbrk(sz);
+#ifdef COWTEST_DEBUG
+  printf("sbrked\n");
+#endif
   if(p == (char*)0xffffffffffffffffL){
     printf("sbrk(%d) failed\n", sz);
     exit(-1);
@@ -28,17 +34,34 @@ simpletest()
   }
 
   int pid = fork();
-  if(pid < 0){
+#ifdef COWTEST_DEBUG
+  printf("forked\n");
+#endif
+  if (pid < 0) {
     printf("fork() failed\n");
     exit(-1);
   }
+#ifdef COWTEST_DEBUG
+  printf("pid=%d\n", pid);
+#endif
 
   if(pid == 0)
     exit(0);
+#ifdef COWTEST_DEBUG
+  printf("exited\n");
+#endif
 
   wait(0);
 
-  if(sbrk(-sz) == (char*)0xffffffffffffffffL){
+#ifdef COWTEST_DEBUG
+  printf("waited\n");
+#endif
+
+  char *pp = sbrk(-sz);
+#ifdef COWTEST_DEBUG
+  printf("sbrked 2\n");
+#endif
+  if(pp == (char*)0xffffffffffffffffL){
     printf("sbrk(-%d) failed\n", sz);
     exit(-1);
   }

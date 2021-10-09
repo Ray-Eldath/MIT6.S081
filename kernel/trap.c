@@ -50,7 +50,9 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
-  if(r_scause() == 8){
+  uint64 scause = r_scause();
+  uint64 stval = r_stval();
+  if(scause == 8){
     // system call
 
     if(p->killed)
@@ -67,12 +69,39 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if (scause == 12 || scause == 13 || scause == 15) {
+    pte_t *pte;  // pte of the old page
+    char *mem, *o_mem;
+    uint flags;
+
+    if ((pte = walk(p->pagetable, PGROUNDDOWN(stval), 0)) == 0 || (*pte & PTE_COW) == 0) {
+      printf("usertrap(): page fault %p pid=%d parent=%s\n", scause, p->pid, p->parent->name);
+      printf("            sepc=%p stval=%p\n", r_sepc(), stval);
+      p->killed = 1;
+      goto outside;
+    }
+    // printf("cow at %p\n", PTE2PA(*pte));
+    flags = PTE_FLAGS(*pte);
+    flags &= ~PTE_COW;
+    flags |= PTE_W;
+
+    if ((mem = kalloc()) == 0) {
+      printf("pid %d killed: out of memory\n", p->pid);
+      p->killed = 1;
+      goto outside;
+    }
+    o_mem = (char *)PTE2PA(*pte);
+    memmove(mem, o_mem, PGSIZE);
+    kfree((char *)o_mem);
+
+    *pte = PA2PTE(mem) | flags;
   } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+    printf("usertrap(): unexpected scause %p pid=%d name=%s\n", scause, p->pid, p->name);
+    printf("            sepc=%p stval=%p\n", r_sepc(), stval);
     p->killed = 1;
   }
 
+outside:
   if(p->killed)
     exit(-1);
 

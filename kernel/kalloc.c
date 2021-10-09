@@ -23,11 +23,44 @@ struct {
   struct run *freelist;
 } kmem;
 
+static int page_rc[NPG];
+
+inline int incr_pgrc(uint64 pa) {
+  uint64 pgrc = (pa - KERNBASE) / PGSIZE;
+  if (pgrc >= 0) {
+    page_rc[pgrc]++;
+    // printf("incr_pgrc[%p]: %d\n", pa, page_rc[pgrc]);
+    return page_rc[pgrc];
+  }
+  return 0;
+}
+
+inline int decr_pgrc(uint64 pa) {
+  uint64 pgrc = (pa - KERNBASE) / PGSIZE;
+  if (pgrc >= 0) {
+    page_rc[pgrc]--;
+    // printf("decr_pgrc[%p]: %d\n", pa, page_rc[pgrc]);
+    return page_rc[pgrc];
+  }
+  return 0;
+}
+
+inline void set_pgrc(uint64 pa, int v) {
+  uint64 pgrc = (pa - KERNBASE) / PGSIZE;
+  if (pgrc >= 0) {
+    page_rc[pgrc] = v;
+    // printf("set_pgrc[%p]: %d\n", pa, page_rc[pgrc]);
+  }
+}
+
 void
 kinit()
 {
+  printf("NPG: %d\n", NPG);
   initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
+  for (int i = 0; i < NPG; i++)
+    page_rc[i] = 0;
 }
 
 void
@@ -50,6 +83,11 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
+
+  // uint64 pgrc = ((uint64)r - KERNBASE) / PGSIZE;
+  // printf("kfree [%d] = %d for %p\n", pgrc, page_rc[pgrc], pa);
+  if (decr_pgrc((uint64)pa) > 0)
+    return;
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -76,7 +114,9 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
+    set_pgrc((uint64)r, 1);
+  }
   return (void*)r;
 }
