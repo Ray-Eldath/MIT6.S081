@@ -22,15 +22,24 @@ barrier_init(void)
   bstate.nthread = 0;
 }
 
-static void 
-barrier()
-{
-  // YOUR CODE HERE
-  //
-  // Block until all threads have called barrier() and
-  // then increment bstate.round.
-  //
-  
+static void
+barrier(long tid) {
+  pthread_mutex_lock(&bstate.barrier_mutex);
+  bstate.nthread++;
+  // printf("t%d  state.nthread=%d bstate.round=%d\n", tid, bstate.nthread, bstate.round);
+  if (bstate.nthread < nthread) {
+    // printf("t%d  waiting...\n", tid);
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);
+    pthread_mutex_unlock(&bstate.barrier_mutex);
+    // printf("t%d  awoken\n", tid);
+  } else {
+    pthread_mutex_unlock(&bstate.barrier_mutex);
+    // printf("t%d  waking...\n", tid);
+    round++;
+    bstate.round = round;
+    bstate.nthread = 0;
+    pthread_cond_broadcast(&bstate.barrier_cond);
+  }
 }
 
 static void *
@@ -40,10 +49,12 @@ thread(void *xa)
   long delay;
   int i;
 
+  // printf("[ nthread=%d  round=%d ]\n", nthread, round);
   for (i = 0; i < 20000; i++) {
     int t = bstate.round;
+    // printf("t%d round=%d, bstate.round=%d\n", n, round, t);
     assert (i == t);
-    barrier();
+    barrier(n);
     usleep(random() % 100);
   }
 

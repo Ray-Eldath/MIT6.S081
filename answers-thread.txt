@@ -1,0 +1,7 @@
+when two threads trying to insert elements into the same bucket:
+1. if two keys are different, one thread will update the head by `*p = e` first, and 
+    if this concurrent with another update, the latter update will overwrites the 
+    former, cause a lost update. and inline `insert` could make critical section
+    only contains two writes.
+2. when two keys are the same, there's no need to lock since one update will
+    overwrites the other whatsoever.
