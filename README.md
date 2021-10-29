@@ -25,3 +25,9 @@ Trivial.
 ### [cow](https://github.com/Ray-Eldath/MIT6.S081/tree/cow)
 
 1. *cow*: unbelievably hard to debug. Anything related to virtual memory is just too damn hard. Had Spent ashaming 12 hours on debugging, the most valuable lesson is: **READ THE INSTRUCTIONS CAREFULLY!!!** If you see some trap like `0x02 invalid instruction`, this may be due to the copied pages are mapped incorrectly. First, you need to find which part of `cowtest` causes the trap, and I've modified `cowtest.c` with some traces as long as `COWTEST_DEBUG` is set, and with a slight modification, the helpful `backtrace()` function you wrote in the last lab could give you backtrace even there's a trap. After that you could dig into the kernel to see what's happened, it turns out that the reference counting is not properly implemented, and when the child cloned its memory due to a page fault, the memory of the parent (i.e. `sh`) was claimed as not-being-used and thus be reclaimed. The memory region is written with something else, causing the instruction to be seen as malformed. If you see `0x02` trap, or the program invoked in shell cannot properly return (by calling `exit(0)`), it may all be due to similar problems (i.e. **READ THE INSTRUCTION NOT CAREFUL ENOUGH**).
+
+### [thread](https://github.com/Ray-Eldath/MIT6.S081/tree/thread)
+
+1. *uthread*: C/C++ standard specifies that fields in a struct are arranged from the lower end to the higher end (**upward**, namely grows as the same direction as the address grows), but STACK GROWS **DOWNWARD**!!! (you can check any RISC-V `.asm` files, and you'll find that the compiler always subtract `$sp`)
+2. *using threads*: a trivial one. Try to minimize critical section, and explain why the smaller critical section still causes no race.
+3. *barrier*: yet another trivial one. Just remember the locking rules with regard to `sleep` & `wakeup` in xv6, they're same here for `pthread_cond_wait` and `pthread_cond_broadcast` respectively.
