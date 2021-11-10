@@ -31,3 +31,7 @@ Trivial.
 1. *uthread*: C/C++ standard specifies that fields in a struct are arranged from the lower end to the higher end (**upward**, namely grows as the same direction as the address grows), but STACK GROWS **DOWNWARD**!!! (you can check any RISC-V `.asm` files, and you'll find that the compiler always subtract `$sp`)
 2. *using threads*: a trivial one. Try to minimize critical section, and explain why the smaller critical section still causes no race.
 3. *barrier*: yet another trivial one. Just remember the locking rules with regard to `sleep` & `wakeup` in xv6, they're same here for `pthread_cond_wait` and `pthread_cond_broadcast` respectively.
+
+### [net](https://github.com/Ray-Eldath/MIT6.S081/tree/thread)
+
+_net_: Read the specification of E1000 carefully. It's **essential** to understand _every single line_ of `e1000.c:e1000_init`, especially those _invariances_ should be kept no matter what is currently executing. Try to figure out those invariances, and examine if they still hold when something peculiar happens. **Reminders**: think about the relationship between `rx_mbufs` and `rx_ring`, the absence of anyone may (or may not? why?) causes exceptional behaviour. Another thing is, be careful of _memory leaking_. Try to print pointers out, and if they're consecutively going downward rather than duplicates once in a while, may you're in great danger of memory leaking.
