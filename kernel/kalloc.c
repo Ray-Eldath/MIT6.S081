@@ -18,15 +18,22 @@ struct run {
   struct run *next;
 };
 
+#define NAMESZ 10
+
 struct {
+  char name[NAMESZ];
   struct spinlock lock;
   struct run *freelist;
-} kmem;
+} kmem[NCPU];
 
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
+  for (int i = 0; i < NCPU; i++) {
+    snprintf(kmem[i].name, NAMESZ, "kmem%d", i);
+    initlock(&kmem[i].lock, kmem[i].name);
+  }
+
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -46,6 +53,8 @@ freerange(void *pa_start, void *pa_end)
 void
 kfree(void *pa)
 {
+  push_off();
+  int cpu = cpuid();
   struct run *r;
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
@@ -56,10 +65,11 @@ kfree(void *pa)
 
   r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+  acquire(&kmem[cpu].lock);
+  r->next = kmem[cpu].freelist;
+  kmem[cpu].freelist = r;
+  release(&kmem[cpu].lock);
+  pop_off();
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -68,15 +78,43 @@ kfree(void *pa)
 void *
 kalloc(void)
 {
+  push_off();
   struct run *r;
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
-  if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
+  int cpu = cpuid();
+
+  acquire(&kmem[cpu].lock);
+  r = kmem[cpu].freelist;
+  if (r)
+    kmem[cpu].freelist = r->next;
+  release(&kmem[cpu].lock);
+
+  if (!r) {
+    for (int i = 0; i < NCPU; i++) {
+      if (i != cpu) {
+        acquire(&kmem[i].lock);
+        if(kmem[i].freelist) {
+          // r = kmem[i].freelist;
+          // kmem[i].freelist = r->next;
+          // release(&kmem[i].lock);
+          // break;
+
+          struct run *start, *end;
+          start = end = kmem[i].freelist;
+          for (int n = 0; n < 20 && end->next != 0; n++)
+            end = end->next;
+          kmem[i].freelist = end->next;
+          (*end).next = 0;
+          r = start;
+          kmem[cpu].freelist = start->next;
+        }
+        release(&kmem[i].lock);
+      }
+    }
+  }
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
+  pop_off();
   return (void*)r;
 }
