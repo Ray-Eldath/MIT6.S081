@@ -470,6 +470,23 @@ itrunc(struct inode *ip)
   iupdate(ip);
 }
 
+int
+symlinki(char* target, struct inode* pp)
+{
+  // pp has been locked in create
+  pp->major = 0;
+  pp->minor = 0;
+  if (writei(pp, 0, (uint64)target, 0, strlen(target)) != strlen(target)) {
+    iunlockput(pp);
+    end_op();
+    return -1;
+  }
+  iupdate(pp);
+  iunlockput(pp);
+  end_op();
+  return 0;
+}
+
 // Copy stat information from inode.
 // Caller must hold ip->lock.
 void
