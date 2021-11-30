@@ -34,7 +34,7 @@ Trivial.
 
 ### [net](https://github.com/Ray-Eldath/MIT6.S081/tree/thread)
 
-_net_: Read the specification of E1000 carefully. It's **essential** to understand _every single line_ of `e1000.c:e1000_init`, especially those _invariances_ should be kept no matter what is currently executing. Try to figure out those invariances, and examine if they still hold when something peculiar happens. **Reminders**: think about the relationship between `rx_mbufs` and `rx_ring`, the absence of anyone may (or may not? why?) causes exceptional behaviour. Another thing is, be careful of _memory leaking_. Try to print pointers out, and if they're consecutively going downward rather than duplicates once in a while, may you're in great danger of memory leaking.
+1. _net_: Read the specification of E1000 carefully. It's **essential** to understand _every single line_ of `e1000.c:e1000_init`, especially those _invariances_ should be kept no matter what is currently executing. Try to figure out those invariances, and examine if they still hold when something peculiar happens. **Reminders**: think about the relationship between `rx_mbufs` and `rx_ring`, the absence of anyone may (or may not? why?) causes exceptional behaviour. Another thing is, be careful of _memory leaking_. Try to print pointers out, and if they're consecutively going downward rather than duplicates once in a while, may you're in great danger of memory leaking.
 
 ### [lock](https://github.com/Ray-Eldath/MIT6.S081/tree/lock)
 
@@ -44,3 +44,9 @@ Still work on this... Some eccentric concurrency problem. :-(
 
 1. *bigfile*: A rather trivial one. Think about the relation between the indeies of first level and second level of the double indirect block table. I just want to say: *Any program, no matter how long or how complicate they are, as long as no concurrency involved, are rather trivial. :-)*.
 2. *symlink*: So here comes concurrency. :-(  Make sure that you really enforces **every single part** of the lock protocol and every paired relations (e.g. `begin_op` & `end_op` should always matched in pair). If you run into some issue in which test stucks at concurrent symlink test just after `symlink` is succussfully executed, check out whether the thread is sleeping in `begin_op` due to the near-exhausted log space. If so, examine every code path (especially those combines `if` and assignment together), make sure that for every `begin_op`, *`end_op` are always called*.
+
+### [map](https://github.com/Ray-Eldath/MIT6.S081/tree/mmap)
+
+1. *mmap*: No concurrency involved, so an easy one :-)  Think twice of your `vma->f->off` in mmap page fault handler, especially when fork programs. Don't forget to release `vma` to make room for the upcoming mmap calls, and remember to call `fileclose` whenever needed, or the modification will not be persisted.
+
+## Happy Hacking! See you xv6! 👋
