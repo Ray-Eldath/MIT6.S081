@@ -5,6 +5,12 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#ifdef LAB_MMAP
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "mmap.h"
+#endif
 
 struct cpu cpus[NCPU];
 
@@ -274,6 +280,29 @@ fork(void)
     return -1;
   }
 
+  // Copy vma from parent to child
+  for (int i = 0; i < SZVMAS; i++) {
+    if (vmas[i].p != 0 && vmas[i].p->pid == p->pid) {
+      struct vma *nv = 0, v = vmas[i];
+      // printf("fork mmap pid=%d addr=%p len=%d\n", p->pid, v.addr, v.len);
+      for (int i = 0; i < SZVMAS; i++) {
+        if (vmas[i].p == 0)
+          nv = vmas + i;
+      }
+      if (nv == 0)
+        panic("fork: vmas no space");
+
+      nv->addr = v.addr;
+      nv->len = v.len;
+      nv->prot = v.prot;
+      nv->flags = v.flags;
+      nv->offset = v.offset;
+      nv->p = np;
+      nv->f = v.f;
+      filedup(nv->f);
+    }
+  }
+
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -343,6 +372,14 @@ exit(int status)
 
   if(p == initproc)
     panic("init exiting");
+
+  // Close all VMAs
+  for (int i = 0; i < SZVMAS; i++) {
+    if (vmas[i].p && vmas[i].p->pid == p->pid) {
+      fileclose(vmas[i].f);
+      memset(vmas + i, 0, sizeof(struct vma));
+    }
+  }
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){

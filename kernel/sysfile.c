@@ -15,6 +15,9 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#ifdef LAB_MMAP
+#include "mmap.h"
+#endif
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -483,4 +486,167 @@ sys_pipe(void)
     return -1;
   }
   return 0;
+}
+
+struct vma vmas[SZVMAS];
+
+uint64
+sys_mmap(void)
+{
+  uint64 addr, len;
+  int prot, flags, fd, offset;
+  struct proc* p;
+  struct vma v;
+
+  if (argaddr(0, &addr) < 0 || argaddr(1, &len) < 0 || argint(2, &prot) < 0 ||
+      argint(3, &flags) < 0 || argint(4, &fd) < 0 || argint(5, &offset) < 0)
+    return MMAP_FAILED;
+
+  for (int i = 0; i < SZVMAS; i++) {
+    if (vmas[i].p == 0) {
+      p = myproc();
+      if ((flags & MAP_SHARED) && (prot & PROT_WRITE) &&
+          !(p->ofile[fd]->writable))
+        return MMAP_FAILED;
+
+      addr = PGROUNDUP(addr == 0 ? p->sz : addr);
+      if (mmap(p, addr, len) < 0)
+        return MMAP_FAILED;
+
+      v.addr = addr;
+      v.len = len;
+      v.prot = prot;
+      v.flags = flags;
+      v.offset = offset;
+      v.p = p;
+      v.f = p->ofile[fd];
+      v.f->off = offset;
+      filedup(v.f);
+      vmas[i] = v;
+      printf("=== sys_mmap i=%d len=%d addr=%p ===\n", i, v.len, v.addr);
+      return addr;
+    }
+  }
+  panic("sys_mmap: vmas no space");
+}
+
+int
+mmap(struct proc* p, uint64 addr, uint64 len)
+{
+  for (uint64 a = addr; a < addr + len; a += PGSIZE) {
+    char* mem = kalloc();
+    printf("mmap pid=%d addr=%p mem=%p\n", p->pid, addr, mem);
+    if (mem == 0) {
+      uvmdealloc(p->pagetable, a, addr);
+      return -1;
+    }
+    memset(mem, 0, PGSIZE);
+
+    if (mappages(p->pagetable, a, PGSIZE, (uint64)mem, PTE_U) < 0) {
+      kfree(mem);
+      uvmdealloc(p->pagetable, a, addr);
+      return -1;
+    }
+
+    if (a >= p->sz)
+      p->sz += PGSIZE;
+  }
+  return 0;
+}
+
+int
+writevma(struct vma*, uint64);
+
+uint64
+sys_munmap(void)
+{
+  uint64 addr, len;
+  struct proc* p;
+  struct vma* v;
+  pte_t* pte;
+  if (argaddr(0, &addr) < 0 || argaddr(1, &len) < 0)
+    return -1;
+
+  p = myproc();
+  for (int i = 0; i < SZVMAS; i++) {
+    if (vmas[i].p && vmas[i].p->pid == p->pid) {
+      v = vmas + i;
+      if (addr >= v->addr && addr <= v->addr + v->len) {
+        printf("i=%d uvmunmap from=%p len=%d\n", i, v->addr, len);
+        if (v->flags & MAP_SHARED) {
+          v->f->off = v->offset;
+          for (uint64 a = addr; a < addr + len; a += PGSIZE) {
+            if ((pte = walk(p->pagetable, a, 0)) == 0 || (*pte & PTE_V) == 0)
+              panic("sys_munmap");
+            if (*pte & PTE_D) {
+              printf("D");
+              writevma(v, a);
+            }
+            // uvmunmap(p->pagetable, a, 1, 1);
+          }
+        }
+        v->addr = addr + len;
+        v->len -= len;
+        printf("new addr=%p  new len=%d\n", v->addr, v->len);
+        if (v->len <= 0) {
+          fileclose(vmas[i].f);
+          memset(vmas + i, 0, sizeof(struct vma));
+        }
+        return 0;
+      }
+    }
+  }
+  return -1;
+}
+
+int
+writevma(struct vma* v, uint64 a)
+{
+  int max = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * BSIZE;
+  int i = 0, r;
+  while (i < PGSIZE) {
+    int n1 = PGSIZE - i;
+    if (n1 > max)
+      n1 = max;
+
+    begin_op();
+    ilock(v->f->ip);
+    if ((r = writei(v->f->ip, 1, a, v->f->off, n1)) > 0)
+      v->f->off += r;
+    iunlock(v->f->ip);
+    end_op();
+    if (r != n1)
+      return -1;
+    i += r;
+  }
+  return 0;
+}
+
+int
+mmapintr(struct proc* p, uint64 stval)
+{
+  struct vma* v;
+  pte_t* pte;
+  int r;
+
+  for (int i = 0; i < SZVMAS; i++) {
+    if (vmas[i].p == p) {
+      v = vmas + i;
+      if (stval >= v->addr && stval < v->addr + v->len) {
+        printf("-> mmapintr stval=%p addr=%p len=%d\n", stval, v->addr, v->len);
+        if ((pte = walk(p->pagetable, stval, 0)) == 0 || (*pte & PTE_V) == 0)
+          panic("mmapintr");
+
+        ilock(v->f->ip);
+        v->f->off = (stval - v->addr);
+        if ((r = readi(v->f->ip, 0, PTE2PA(*pte), v->f->off, PGSIZE)) > 0)
+          v->f->off += r;
+        iunlock(v->f->ip);
+
+        *pte |= (v->prot << 1);
+        return 0;
+      }
+    }
+  }
+  return -1;
 }
